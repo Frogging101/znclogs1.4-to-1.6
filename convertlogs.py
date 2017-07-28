@@ -40,18 +40,18 @@ import textwrap
 
 OUTDIR = "./output/"
 
-# This is what you'll need to change if your stuff contains underscores. Just
-# make sure the named groups match properly.
-globalRe = re.compile(r"^(?P<user>.+?)_(?P<network>[\w-]+?)_(?P<window>.+)_(?P<date>[0-9]+)\.log$")
-networkRe = re.compile(r"^(?P<window>.+)_(?P<date>[0-9]+)\.log")
-userRe = re.compile(r"^(?P<network>[\w-]+?)_(?P<window>.+)_(?P<date>[0-9]+)\.log")
+# This is what you'll need to change if your stuff contains underscores.
+# Just make sure the named groups match properly.
+global_regex = re.compile(r"^(?P<user>.+?)_(?P<network>[\w-]+?)_(?P<window>.+)_(?P<date>[0-9]+)\.log$")
+network_regex = re.compile(r"^(?P<window>.+)_(?P<date>[0-9]+)\.log")
+user_regex = re.compile(r"^(?P<network>[\w-]+?)_(?P<window>.+)_(?P<date>[0-9]+)\.log")
 
-globalDirFormat = "{user}/{network}/{window}"
-userDirFormat = "{network}/{window}"
-networkDirFormat = "{window}"
+global_dirformat = "{user}/{network}/{window}"
+user_dirformat = "{network}/{window}"
+network_dirformat = "{window}"
 
 """Sorts log lines by timestamp and returns the sorted lines"""
-def sortLines(lines):
+def sort_lines(lines):
     out = []
 
     lineRe = re.compile(r'^\[(.*?)].*$')
@@ -68,16 +68,18 @@ def sortLines(lines):
     return [x[1] for x in out]
 
 """Finds log files that have mixed-case dupes and returns a list of
-   tuples containing the different names of each log file"""
-def findMixedCaseDupes(names):
+tuples containing the different names of each log file
+"""
+def find_mixed_case_dupes(names):
     dupes = []
 
-    # convert all names to lowercase and count how many instances exist of each
+    # convert all names to lowercase and count how many instances exist
+    # of each
     nameslc = [name.lower() for name in names]
     counts = Counter(nameslc)
     dupenames = []
 
-    # Find duplicates (Any lowercase name that occurs twice) 
+    # Find duplicates (Any lowercase name that occurs twice)
     # and append them to dupenames
     for k,v in counts.items():
         if v == 2:
@@ -85,7 +87,8 @@ def findMixedCaseDupes(names):
         if v > 2: # We're not currently equipped to handle >2 copies 
             print("Warning: "+k+" has more than two occurrences. Skipping.")
 
-    # Make a tuple for each duped file, containing the names of the copies
+    # Make a tuple for each duped file, containing the names of the
+    # copies
     for dupename in dupenames:
         tmp = []
         for i,v in enumerate(names):
@@ -94,7 +97,7 @@ def findMixedCaseDupes(names):
         dupes.append(tuple(tmp))
     return dupes
 
-def mergeAndCopyLogs(logfiles, dupes):
+def merge_and_copy_logs(logfiles, dupes):
     print("Merging logs...")
     for dupe in dupes:
         lines = []
@@ -111,11 +114,11 @@ def mergeAndCopyLogs(logfiles, dupes):
         f2.close()
 
         # Sort the lines by timestamp
-        sortedLines = sortLines(lines)
+        sorted_lines = sort_lines(lines)
      
         # Store the 
         outf = open(OUTDIR+dupe[0].lower(),'w')
-        for line in sortedLines:
+        for line in sorted_lines:
             outf.write(line)
         outf.close()
 
@@ -128,28 +131,30 @@ def mergeAndCopyLogs(logfiles, dupes):
 
     # Copy all other files over in lowercase format
     print("Copying remaining logs...")
-    logsCopied = 0
+    logs_copied = 0
     for name in logfiles:
         if name not in dupeslist:
             shutil.copy2(name,OUTDIR+name.lower())
-            logsCopied += 1
-    print(str(logsCopied)+" files copied.")
+            logs_copied += 1
+    print(str(logs_copied)+" files copied.")
 
-"""Moves the files into a directory hierarchy based on http://wiki.znc.in/Log"""
-def convertToHierarchy(logType):
+"""Moves the files into a directory hierarchy based on
+http://wiki.znc.in/Log
+"""
+def convert_to_hierarchy(logType):
     print("Rearranging logs into 1.6 hierarchy...")
     logfiles = os.listdir(OUTDIR)
-    myRe = globalRe
-    myFormat = globalDirFormat
+    regex = global_regex
+    format = global_dirformat
     if logType == 'N':
-        myRe = networkRe
-        myFormat = networkDirFormat
+        regex = network_regex
+        myFormat = global_dirformat
     elif logType == 'U':
-        myRe = userRe
-        myFormat = userDirFormat
+        regex = user_regex
+        format = user_dirformat
 
     for logfile in logfiles:
-        m = myRe.match(logfile)
+        m = regex.match(logfile)
         if not m:
             print("warning: "+logfile+" did not match! It will be skipped.")
             continue
@@ -181,7 +186,7 @@ def convertToHierarchy(logType):
             print("warning: "+logfile+" doesn't have a date. That makes no sense. It's being skipped.")
             continue
 
-        path = OUTDIR+myFormat.format(user=user, network=network, window=window)
+        path = OUTDIR+format.format(user=user, network=network, window=window)
 
         try:
             os.makedirs(path)
@@ -198,7 +203,7 @@ def convertToHierarchy(logType):
 
 filenames = os.listdir('.')
 logfiles = [x for x in filenames if x.endswith('log')]
-dupes = findMixedCaseDupes(logfiles)
+dupes = find_mixed_case_dupes(logfiles)
 
 try:
     print("""This script should be run in the same directory as your ZNC 1.4 log files.
@@ -211,21 +216,21 @@ Your log files should be backed up and ZNC should *not* be running.\n""")
     print("If your network or user names contain underscores, the directory structure WILL be wrong unless you edit the script.")
     input("Press Enter to continue or Ctrl+C to abort")
     print('')
-    logType = input("What log module are these logs from? (Global/Network/User)? ")
+    logtype = input("What log module are these logs from? (Global/Network/User)? ")
 except KeyboardInterrupt:
     print('')
     exit(1)
 
 # Global by default
-if logType:
-    logType = logType[0].upper()
+if logtype:
+    logtype = logtype[0].upper()
 else:
-    logType = 'G'
+    logtype = 'G'
 
 try:
     os.mkdir(OUTDIR)
 except OSError:
     pass
 
-mergeAndCopyLogs(logfiles, dupes)
-convertToHierarchy(logType)
+merge_and_copy_logs(logfiles, dupes)
+convert_to_hierarchy(logtype)
